@@ -1,13 +1,17 @@
 class Expr
   @@types = {}
 
-  def ==(other)
-    other.class == self.class and other.state == state
-  end
-
   def self.build(s_expr)
     type, *s_args = *s_expr
     @@types[type].build(s_args)
+  end
+
+  def self.handles_expression(symbol)
+    @@types[symbol] = self
+  end
+
+  def ==(other)
+    other.class == self.class and other.state == state
   end
 
   def +(other)
@@ -42,7 +46,7 @@ class Atomic < Expr
 end
 
 class Number < Atomic
-  @@types[:number] = self
+  self.handles_expression(:number)
 
   ZERO = self.new(0)
   ONE = self.new(1)
@@ -61,7 +65,7 @@ class Number < Atomic
 end
 
 class Variable < Atomic
-  @@types[:variable] = self
+  self.handles_expression(:variable)
 
   def evaluate(environment = {})
     if environment.has_key? value
@@ -126,91 +130,87 @@ class Composite < Expr
 end
 
 class Addition < Composite
-  @@types[:+] = self
+  self.handles_expression(:+)
 
-  def self.compute_value(a, b)
-    a + b
-  end
+  class << self
+    def compute_value(a, b)
+      a + b
+    end
 
-  def self.compute_derivative(f, g, df, dg)
-    df + dg
-  end
+    def compute_derivative(f, g, df, dg)
+      df + dg
+    end
 
-  def self.simplify_step(whole, a, b)
-    if a == Number::ZERO
-      b
-    elsif b == Number::ZERO
-      a
-    else
-      whole
+    def simplify_step(whole, a, b)
+      if    a == Number::ZERO then b
+      elsif b == Number::ZERO then a
+      else  whole
+      end
     end
   end
 end
 
 class Multiplication < Composite
-  @@types[:*] = self
+  self.handles_expression(:*)
 
-  def self.compute_value(a, b)
-    a * b
-  end
+  class << self
+    def compute_value(a, b)
+      a * b
+    end
 
-  def self.compute_derivative(f, g, df, dg)
-    df * g + f * dg
-  end
+    def compute_derivative(f, g, df, dg)
+      df * g + f * dg
+    end
 
-  def self.simplify_step(whole, a, b)
-    if a == Number::ZERO or b == Number::ZERO
-      Number::ZERO
-    elsif a == Number::ONE
-      b
-    elsif b == Number::ONE
-      a
-    else
-      whole
+    def simplify_step(whole, a, b)
+      if a == Number::ZERO or b == Number::ZERO
+        Number::ZERO
+      elsif a == Number::ONE then b
+      elsif b == Number::ONE then a
+      else  whole
+      end
     end
   end
 end
 
 class Negation < Composite
-  @@types[:-] = self
+  self.handles_expression(:-)
 
-  def self.compute_value(a)
-    -a
-  end
+  class << self
+    def compute_value(a)
+      -a
+    end
 
-  def self.compute_derivative(f, df)
-    -df
-  end
-
-  def self.simplify_step(whole, a)
-    if Negation == a.class
-      a.args.first
-    else
-      whole
+    def compute_derivative(f, df)
+      -df
     end
   end
 end
 
 class Sine < Composite
-  @@types[:sin] = self
+  self.handles_expression(:sin)
 
-  def self.compute_value(a)
-    Math.sin(a)
-  end
+  class << self
+    def compute_value(a)
+      Math.sin(a)
+    end
 
-  def self.compute_derivative(f, df)
-    df * Cosine.new(f)
+    def compute_derivative(f, df)
+      df * Cosine.new(f)
+    end
   end
 end
 
 class Cosine < Composite
-  @@types[:cos] = self
+  self.handles_expression(:cos)
 
-  def self.compute_value(a)
-    Math.cos(a)
-  end
+  class << self
+    def compute_value(a)
+      Math.cos(a)
+    end
 
-  def self.compute_derivative(f, df)
-    df * -Sine.new(f)
+    def compute_derivative(f, df)
+      df * -Sine.new(f)
+    end
   end
 end

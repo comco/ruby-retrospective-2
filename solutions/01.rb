@@ -3,32 +3,39 @@
 
 class Integer
   def prime_divisors
-    a = []
-    (2..abs).each { |e| a << e if (abs % e == 0) and a.all? { |f| e % f != 0 } }
-    a
+    2.upto(abs).select { |n| divisible_by?(n) && n.prime? }
+  end
+
+  def prime?
+    not 2.upto(pred).any? { |n| divisible_by?(n) }
+  end
+
+  def divisible_by?(n)
+    remainder(n).zero?
   end
 end
 
 class Range
   def fizzbuzz
-    map do |e|
-      x = :fizz if e % 3 == 0
-      x = "#{x}buzz".to_sym if e % 5 == 0
-      x ||= e
+    map do |n|
+      if    n % 15 == 0 then :fizzbuzz
+      elsif n % 3  == 0 then :fizz
+      elsif n % 5  == 0 then :buzz
+      else  n
+      end
     end
   end
 end
 
 class Hash
   def group_values
-    h = {}
-    each { |k, v| (h[v] ||= []) << k }
-    h
+    keys.group_by { |key| self[key] }
   end
 end
 
 class Array
   def densities
-    map { |e| self.count e }
+    map { |item| count item }
   end
 end
+

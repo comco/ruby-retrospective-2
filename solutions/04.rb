@@ -1,22 +1,22 @@
 module RegexConstants
-  TLD = /[[:alpha:]]{2,3}(\.[[:alpha:]]{2})?/
+  TLD = /[a-z]{2,3}(\.[a-z]{2})?/i
   DOMAIN_NAME = /[[:alnum:]]|[[:alnum:]][[:alnum:]-]{,60}[[:alnum:]]/
   SUBDOMAIN = /#{DOMAIN_NAME}/
   DOMAIN = /#{DOMAIN_NAME}\.#{TLD}/
   HOSTNAME = /(#{SUBDOMAIN}\.)*#{DOMAIN}/
   USERNAME = /[[:alnum:]][\w+.-]{,200}/
-  EMAIL = /(?<username>#{USERNAME})@(?<hostname>#{HOSTNAME})/
+  EMAIL = /\b(?<username>#{USERNAME})@(?<hostname>#{HOSTNAME})\b/
 
   INTERNATIONAL_CODE = /[1-9]\d{,2}/
   INTERNATIONAL_PREFIX = /(00|\+)#{INTERNATIONAL_CODE}/
   PHONE_PREFIX = /0|#{INTERNATIONAL_PREFIX}/
   PHONE_DELIMITERS = /[ ()-]/
-  PHONE_BODY = /\d(#{PHONE_DELIMITERS}{,2}\d){5,10}/
-  PHONE = /#{PHONE_PREFIX}#{PHONE_DELIMITERS}*#{PHONE_BODY}/
+  PHONE_BODY = /\d(#{PHONE_DELIMITERS}{,2}\d){6,10}/
+  PHONE = /(\b|(?<![\+\w]))#{PHONE_PREFIX}#{PHONE_DELIMITERS}*#{PHONE_BODY}\b/
   INTERNATIONAL_PHONE = /(?<prefix>#{INTERNATIONAL_PREFIX})#{PHONE_DELIMITERS}*#{PHONE_BODY}/
 
   BYTE = /0|1\d\d|2[0-4]\d|25[0-5]|[1-9]\d?/
-  IP_ADDRESS = /#{BYTE}(\.#{BYTE}){3}/
+  IP_ADDRESS = /(\d+)\.(\d+)\.(\d+)\.(\d+)/
 
   INTEGER = /-?(0|[1-9]\d*)/
   NUMBER = /#{INTEGER}(\.\d+)?/
@@ -31,7 +31,7 @@ class Validations
     include RegexConstants
 
     def exact?(regex, value)
-      not (value =~ /\A#{regex}\z/).nil?
+      !!(value =~ /\A#{regex}\z/)
     end
 
     def email?(value)
@@ -47,7 +47,11 @@ class Validations
     end
 
     def ip_address?(value)
-      exact?(IP_ADDRESS, value)
+      if value =~ /\A#{IP_ADDRESS}\z/
+        $~.captures.all? { |byte| 0.upto(255).include? byte.to_i }
+      else
+        false
+      end
     end
 
     def number?(value)
@@ -84,8 +88,9 @@ class PrivacyFilter
   end
 
   def filter_name(name)
-    return '[FILTERED]' if name.length < 6
-    name[0...3] + '[FILTERED]'
+    if name.length < 6 then '[FILTERED]'
+    else name[0...3] + '[FILTERED]'
+    end
   end
 
   def filtered_from_email

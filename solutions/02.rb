@@ -6,75 +6,126 @@
 #     ~~'    by comco     |  ~'      `~' o o  /
 #                          \   /~`\     o o  /
 #                           `~'    `-.____.-'
+class Song
+  attr_reader :name, :artist, :album
+
+  def initialize(name, artist, album)
+    @name   = name
+    @artist = artist
+    @album  = album
+  end
+
+  def state
+    [name, artist, album]
+  end
+end
+
 class Collection
   include Enumerable
 
-  Properties = [:name, :artist, :album]
   attr_reader :songs, :names, :artists, :albums
 
-  # the collection is initialized by a table of hashes, representing the
-  # attributes of a specific song
   def initialize(songs)
     @songs = songs
-    # get the attributes of the collection by looking at the columns of the
-    # table
-    table = songs.map(&:values)
-    @names, @artists, @albums = *table.transpose.map(&:uniq)
+    @names, @artists, @albums = *songs.map(&:state).transpose.map(&:uniq)
   end
 
   def self.parse(text)
-    # split the input into an array of song-specific lines
-    blocks = text.each_line.map(&:strip).each_slice(4)
-    # transform each block of lines to a hash with attributes
-    songs = blocks.map { |block| Hash[Properties.zip(block)] }
+    songs = text.lines.map(&:chomp).each_slice(4).map do |name, artist, album|
+      Song.new(name, artist, album)
+    end
+
     new songs
   end
 
-  Song = Struct.new(*Properties)
-
-  def each
-    @songs.each do |song|
-      # for iteration, construct a new song with the required methods
-      yield Song.new(*song.values)
-    end
+  def each(&block)
+    songs.each(&block)
   end
 
   def filter(criteria)
-    filtered_songs = @songs.select { |song| criteria.check.(song) }
-    Collection.new filtered_songs
+    Collection.new select { |song| criteria.matches?(song) }
   end
 
   def adjoin(other)
-    merged_songs = @songs | other.songs
-    Collection.new merged_songs
+    Collection.new (songs | other.songs)
   end
 end
 
 # a criteria contains a member which is a predicate for checking the criteria
-class Criteria < Struct.new(:check)
+class Criteria
+  def initialize(&matching_block)
+    @matching_block = matching_block
+  end
+
+  def matches?(song)
+    @matching_block.call(song)
+  end
+
   # base criterias definition
   def self.name(song_name)
-    new ->(song) { song[:name] == song_name }
+    new { |song| song.name == song_name }
   end
 
   def self.artist(artist_name)
-    new ->(song) { song[:artist] == artist_name }
+    new { |song| song.artist == artist_name }
   end
 
   def self.album(album_name)
-    new ->(song) { song[:album] == album_name }
+    new { |song| song.album == album_name }
   end
 
   # criteria composition support
   def !
-    Criteria.new ->(song) { not check.(song) }
+    Criteria.new { |song| not matches?(song) }
   end
 
   def |(other)
-    Criteria.new ->(song) { check.(song) or other.check.(song) }
+    Criteria.new { |song| matches?(song) or other.matches?(song) }
   end
 
   def &(other)
-    Criteria.new ->(song) { check.(song) and other.check.(song) }
+    Criteria.new { |song| matches?(song) and other.matches?(song) }
   end
 end
+
+SONGS = <<END
+Fields of Gold
+Sting
+Ten Summoner's Tales
+
+Mad About You
+Sting
+The Soul Cages
+
+Fields of Gold
+Eva Cassidy
+Live at Blues Alley
+
+Autumn Leaves
+Eva Cassidy
+Live at Blues Alley
+
+Autumn Leaves
+Bill Evans
+Portrait in Jazz
+
+Brain of J.F.K
+Pearl Jam
+Yield
+
+Jeremy
+Pearl Jam
+Ten
+
+Come Away With Me
+Norah Johnes
+One
+
+Acknowledgment
+John Coltrane
+A Love Supreme
+
+Ruby, My Dear
+Thelonious Monk
+Mysterioso
+END
